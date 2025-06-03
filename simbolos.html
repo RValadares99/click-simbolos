@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Caça aos Símbolos (Web)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; margin: 0 auto; }
+        #info { color: white; font-family: Arial; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <p>Pontos: <span id="pontos">0</span> | Vidas: <span id="vidas">3</span></p>
+    </div>
+    <canvas id="jogo" width="800" height="600"></canvas>
+
+    <script>
+        // Configuração
+        const canvas = document.getElementById("jogo");
+        const ctx = canvas.getContext("2d");
+        const infoPontos = document.getElementById("pontos");
+        const infoVidas = document.getElementById("vidas");
+
+        // Símbolos e teclas
+        const simbolos = {
+            ESTRELA: { tecla: "s", cor: "#FFFF00" },
+            DIAMANTE: { tecla: "d", cor: "#00FFFF" },
+            CORACAO: { tecla: "a", cor: "#FF0000" },
+            SOL: { tecla: "w", cor: "#FFA500" }
+        };
+
+        // Sons
+        const sons = {
+            acerto: new Audio("acerto.mp3"),
+            erro: new Audio("erro.mp3"),
+            tempo: new Audio("tempo.mp3")
+            };
+
+        // Variáveis do jogo
+        let simboloAtual = Object.keys(simbolos)[0];
+        let pontos = 0;
+        let vidas = 3;
+        const tempoLimite = 2; // segundos
+        let inicioTempo = Date.now() / 1000;
+        
+        // Função para tocar som (com tratamento de erro)
+        function tocarSom(nomeSom) {
+            try {
+                sons[nomeSom].currentTime = 0; // Reinicia o som se já estiver tocando
+                sons[nomeSom].play();
+            } catch (e) {
+                console.log("Erro ao tocar som:", e);
+            }
+        }
+
+        // Função para desenhar símbolos
+        function desenharSimbolo(nome, x, y, tamanho) {
+            ctx.fillStyle = simbolos[nome].cor;
+            
+            if (nome === "ESTRELA") {
+                // Estrela
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angulo = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                    const raioExterno = tamanho;
+                    const raioInterno = tamanho / 2;
+                    
+                    const xExterno = x + raioExterno * Math.cos(angulo);
+                    const yExterno = y + raioExterno * Math.sin(angulo);
+                    const xInterno = x + raioInterno * Math.cos(angulo + Math.PI / 5);
+                    const yInterno = y + raioInterno * Math.sin(angulo + Math.PI / 5);
+                    
+                    if (i === 0) ctx.moveTo(xExterno, yExterno);
+                    else ctx.lineTo(xExterno, yExterno);
+                    
+                    ctx.lineTo(xInterno, yInterno);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+            } else if (nome === "DIAMANTE") {
+                // Diamante (losango)
+                ctx.beginPath();
+                ctx.moveTo(x, y - tamanho);
+                ctx.lineTo(x + tamanho, y);
+                ctx.lineTo(x, y + tamanho);
+                ctx.lineTo(x - tamanho, y);
+                ctx.closePath();
+                ctx.fill();
+                
+            } else if (nome === "CORACAO") {
+                // Coração
+                ctx.beginPath();
+                ctx.arc(x - tamanho/2, y - tamanho/2, tamanho/2, Math.PI, 0, false);
+                ctx.arc(x + tamanho/2, y - tamanho/2, tamanho/2, Math.PI, 0, false);
+                ctx.lineTo(x + tamanho, y + tamanho/2);
+                ctx.lineTo(x, y + tamanho);
+                ctx.lineTo(x - tamanho, y + tamanho/2);
+                ctx.closePath();
+                ctx.fill();
+                
+            } else if (nome === "SOL") {
+                // Sol (círculo + raios)
+                ctx.beginPath();
+                ctx.arc(x, y, tamanho/2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                for (let i = 0; i < 12; i++) {
+                    const angulo = (i * Math.PI / 6);
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(
+                        x + Math.cos(angulo) * tamanho,
+                        y + Math.sin(angulo) * tamanho
+                    );
+                    ctx.lineWidth = 5;
+                    ctx.strokeStyle = simbolos[nome].cor;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Loop do jogo
+        function atualizar() {
+            
+            // Limpar tela
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Tempo restante
+            const tempoAtual = Date.now() / 1000;
+            const tempoRestante = tempoLimite - (tempoAtual - inicioTempo);
+            
+            // Verificar tempo
+            if (tempoRestante <= 0) {
+                tocarSom("tempo"); // Som de tempo esgotado
+                vidas--;
+                simboloAtual = Object.keys(simbolos)[Math.floor(Math.random() * Object.keys(simbolos).length)];
+                inicioTempo = tempoAtual;
+            }
+            
+            // Desenhar símbolo
+            desenharSimbolo(simboloAtual, canvas.width/2, canvas.height/2, 100);
+            
+            // Atualizar UI
+            infoPontos.textContent = pontos;
+            infoVidas.textContent = vidas;
+            
+            // Fim do jogo
+            if (vidas <= 0) {
+                alert(`Fim do jogo! Pontuação: ${pontos}`);
+                pontos = 0;
+                vidas = 3;
+            }
+            
+            requestAnimationFrame(atualizar);
+        }
+
+        // Evento de teclado
+        document.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === simbolos[simboloAtual].tecla) {
+            tocarSom("acerto"); // Som de acerto
+            pontos++;
+            simboloAtual = Object.keys(simbolos)[Math.floor(Math.random() * Object.keys(simbolos).length)];
+            inicioTempo = Date.now() / 1000;
+        } else {
+            tocarSom("erro"); // Som de erro
+            vidas--;
+        }
+    });
+
+        // Iniciar
+        simboloAtual = Object.keys(simbolos)[Math.floor(Math.random() * Object.keys(simbolos).length)];
+        atualizar();
+    </script>
+</body>
+</html>
